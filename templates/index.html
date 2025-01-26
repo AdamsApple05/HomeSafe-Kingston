@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomeSafe - Safe Routes in Kingston</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* Modern Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden; /* Prevent page scroll */
+        }
+
+        /* Refined Container Styles */
+        .sidebar {
+            width: 400px;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.98);
+            padding: 2rem;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Hide sidebar overflow */
+        }
+
+        /* Enhanced Logo */
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #0071e3 0%, #47a3ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            letter-spacing: -0.5px;
+            flex-shrink: 0; /* Prevent header from shrinking */
+        }
+
+        .logo-icon {
+            font-size: 2rem;
+        }
+
+        .logo-subtitle {
+            font-size: 0.95rem;
+            color: #6e6e73;
+            margin-bottom: 2rem;
+            font-weight: 400;
+            letter-spacing: -0.2px;
+            flex-shrink: 0; /* Prevent header from shrinking */
+        }
+
+        /* Refined Input Styles */
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+            z-index: 2;
+        }
+
+        .input-group:first-of-type {
+            z-index: 3; /* Higher z-index for the first geocoder */
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #1d1d1f;
+            font-weight: 500;
+            letter-spacing: -0.2px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #0071e3;
+        }
+
+        /* Updated button and loading states */
+        .find-route-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #0071e3 0%, #47a3ff 100%);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 16px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            letter-spacing: -0.2px;
+        }
+
+        .find-route-btn:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 113, 227, 0.3);
+        }
+
+        .find-route-btn:disabled {
+            background: linear-gradient(135deg, #8ab6e9 0%, #a7ceff 100%);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        .error-message {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #fff2f2;
+            border: 1px solid #ffcdd2;
+            color: #d32f2f;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .quick-tips {
+            margin-top: 24px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .quick-tips h3 {
+            color: #1d1d1f;
+            font-size: 1rem;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .quick-tips ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .quick-tips li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #424245;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .quick-tips li::before {
+            content: "•";
+            color: #0071e3;
+            font-weight: bold;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Refined Tab Design */
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            padding-bottom: 0.5rem;
+        }
+
+        .tab {
+            background: none;
+            border: none;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            color: #6e6e73;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.3s ease;
+        }
+
+        .tab.active {
+            color: #0071e3;
+            font-weight: 500;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -0.5rem;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: #0071e3;
+            border-radius: 2px;
+        }
+
+        /* Content styling */
+        .tab-content {
+            display: none;
+            height: calc(100vh - 180px); /* Adjust based on your header height */
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .route-content, .about-content {
+            padding-right: 1rem;
+        }
+
+        /* Scrollbar styling */
+        .tab-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .tab-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .tab-content::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+
+        .tab-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Enhanced Route Info */
+        .route-info {
+            background: rgba(0, 113, 227, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .route-info h3 {
+            color: #1d1d1f;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            color: #6e6e73;
+        }
+
+        .info-value {
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+
+        /* Updated Geocoder Styles */
+        .mapboxgl-ctrl-geocoder {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-shadow: none !important;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 12px !important;
+        }
+
+        .mapboxgl-ctrl-geocoder--suggestions {
+            position: absolute !important;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .mapboxgl-ctrl-geocoder--suggestion {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .mapboxgl-ctrl-geocoder--suggestion:last-child {
+            border-bottom: none;
+        }
+
+        .mapboxgl-ctrl-geocoder--input {
+            height: 48px !important;
+            padding: 6px 40px !important;
+            border: none !important;
+            border-radius: 12px !important;
+            font-size: 0.95rem !important;
+            color: #1d1d1f !important;
+        }
+
+        .mapboxgl-ctrl-geocoder--input:focus {
+            outline: none !important;
+        }
+
+        /* Updated Chat Styles */
+        .chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 380px;
+            height: 520px;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .chat-hidden {
+            transform: translateY(150%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #0071e3 0%, #47a3ff 100%);
+            padding: 20px;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+
+        .chat-header h3 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            letter-spacing: -0.3px;
+        }
+
+        .chat-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.2s ease;
+        }
+
+        .chat-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #ffffff;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 14px 18px;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            letter-spacing: -0.2px;
+        }
+
+        .user-message {
+            background: linear-gradient(135deg, #0071e3 0%, #47a3ff 100%);
+            color: white;
+            align-self: flex-end;
+            margin-left: 15%;
+            box-shadow: 0 2px 8px rgba(0, 113, 227, 0.2);
+        }
+
+        .ai-message {
+            background: #f5f7fa;
+            color: #1d1d1f;
+            align-self: flex-start;
+            margin-right: 15%;
+        }
+
+        .chat-input {
+            padding: 16px;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            display: flex;
+            gap: 12px;
+            background: #ffffff;
+            border-radius: 0 0 20px 20px;
+        }
+
+        .chat-input input {
+            flex-grow: 1;
+            padding: 14px 18px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 16px;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            background: #f5f7fa;
+        }
+
+        .chat-input input:focus {
+            outline: none;
+            border-color: #0071e3;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 113, 227, 0.1);
+        }
+
+        .chat-input button {
+            background: linear-gradient(135deg, #0071e3 0%, #47a3ff 100%);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 14px 24px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: -0.2px;
+        }
+
+        .chat-input button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2);
+        }
+
+        /* Chat Opener Button */
+        .chat-opener {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #0071e3 0%, #47a3ff 100%);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 14px 24px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2);
+            transition: all 0.2s ease;
+            z-index: 1000;
+            letter-spacing: -0.2px;
+        }
+
+        .chat-opener:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 113, 227, 0.3);
+        }
+
+        .chat-opener-icon {
+            font-size: 1.2rem;
+        }
+
+        /* Map styles */
+        #map {
+            flex: 1;
+            height: 100vh;
+        }
+
+        /* Input group positioning */
+        .input-group:first-of-type .mapboxgl-ctrl-geocoder--suggestions {
+            z-index: 1000 !important;
+        }
+
+        /* Ensure proper stacking context */
+        #start-geocoder, #end-geocoder {
+            position: relative;
+        }
+
+        #start-geocoder .mapboxgl-ctrl-geocoder--suggestions {
+            z-index: 1000 !important;
+        }
+
+        #end-geocoder .mapboxgl-ctrl-geocoder--suggestions {
+            z-index: 999;
+        }
+
+        .about-section {
+            padding: 1rem 0;
+            color: #1d1d1f;
+        }
+
+        .about-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #0071e3;
+            font-weight: 600;
+        }
+
+        .about-section h3 {
+            font-size: 1.1rem;
+            margin: 1.5rem 0 0.75rem;
+            color: #1d1d1f;
+            font-weight: 600;
+        }
+
+        .about-section p {
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            color: #424245;
+        }
+
+        .about-section ul, .about-section ol {
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .about-section li {
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+            color: #424245;
+        }
+
+        /* Ensure the about section scrolls properly */
+        #aboutTab {
+            padding-bottom: 2rem;
+        }
+
+        /* Add these styles for route information */
+        .route-info {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #f5f5f7;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .route-info h3 {
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+            color: #1d1d1f;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            color: #424245;
+            font-size: 0.95rem;
+        }
+
+        .error-message {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            background: #fff2f2;
+            border: 1px solid #ffcdd2;
+            color: #d32f2f;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .about-content {
+            padding: 1.5rem 0;
+            color: #1d1d1f;
+        }
+
+        .about-header {
+            margin-bottom: 2rem;
+        }
+
+        .about-header h2 {
+            font-size: 2rem;
+            background: linear-gradient(135deg, #0071e3 0%, #47a3ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .about-intro {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #424245;
+        }
+
+        .feature-section, .usage-section, .safety-section {
+            margin-bottom: 2.5rem;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            color: #1d1d1f;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: #f5f7fa;
+            padding: 1.5rem;
+            border-radius: 16px;
+            transition: transform 0.2s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .feature-card h4 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: #1d1d1f;
+        }
+
+        .feature-card p {
+            color: #6e6e73;
+            font-size: 0.95rem;
+        }
+
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: #f5f7fa;
+            padding: 1rem;
+            border-radius: 12px;
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #0071e3 0%, #47a3ff 100%);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .safety-tips-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .safety-tip {
+            background: #f5f7fa;
+            padding: 1rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .tip-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .safety-tip p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #424245;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .feature-grid, .safety-tips-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">🏠</span>
+                HomeSafe Kingston
+            </div>
+            <div class="logo-subtitle">AI-Powered Safe Navigation</div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('routeTab', this)">Route</button>
+                <button class="tab" onclick="switchTab('aboutTab', this)">About</button>
+            </div>
+
+            <div id="routeTab" class="tab-content active">
+                <div class="route-content">
+                    <div class="input-group">
+                        <label for="start">Starting Point</label>
+                        <div id="start-geocoder"></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="end">Destination</label>
+                        <div id="end-geocoder"></div>
+                    </div>
+                    
+                    <button onclick="findSafeRoute()" id="findRouteBtn" class="find-route-btn">
+                        <span class="btn-text">Find Safe Route</span>
+                        <div class="loading-spinner" style="display: none;"></div>
+                    </button>
+
+                    <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+                    <div id="routeInfo" class="route-info" style="display: none;">
+                        <h3>Route Information</h3>
+                        <div class="info-item">
+                            <span>Distance:</span>
+                            <span id="distance">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span>Duration:</span>
+                            <span id="duration">-</span>
+                        </div>
+                    </div>
+
+                    <div class="quick-tips">
+                        <h3>Quick Tips</h3>
+                        <ul>
+                            <li>Search for locations by address</li>
+                            <li>Use chat assistant for safety advice</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="aboutTab" class="tab-content">
+                <div class="about-content">
+                    <div class="about-header">
+                        <h2>About HomeSafe Kingston</h2>
+                        <p class="about-intro">HomeSafe Kingston is an AI-powered navigation tool designed to help students and residents find safer walking routes in Kingston, Ontario.</p>
+                    </div>
+
+                    <div class="feature-section">
+                        <h3>Features</h3>
+                        <div class="feature-grid">
+                            <div class="feature-card">
+                                <span class="feature-icon">📍</span>
+                                <h4>Safe Route Planning</h4>
+                                <p>Using local data for optimal safety</p>
+                            </div>
+                            <div class="feature-card">
+                                <span class="feature-icon">🤖</span>
+                                <h4>AI Safety Assistant</h4>
+                                <p>Personalized advice and recommendations</p>
+                            </div>
+                            <div class="feature-card">
+                                <span class="feature-icon">📱</span>
+                                <h4>Easy Interface</h4>
+                                <p>Quick and intuitive navigation</p>
+                            </div>
+                            <div class="feature-card">
+                                <span class="feature-icon">🎓</span>
+                                <h4>Local Focus</h4>
+                                <p>Specialized for Kingston & Queen's area</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="usage-section">
+                        <h3>How to Use</h3>
+                        <div class="steps-container">
+                            <div class="step">
+                                <div class="step-number">1</div>
+                                <p>Enter your starting point and destination</p>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">2</div>
+                                <p>Click "Find Safe Route" to get directions</p>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">3</div>
+                                <p>Use the chat assistant for safety tips</p>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">4</div>
+                                <p>Follow the highlighted route on the map</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="safety-section">
+                        <h3>Safety Tips</h3>
+                        <div class="safety-tips-grid">
+                            <div class="safety-tip">
+                                <span class="tip-icon">💡</span>
+                                <p>Stay in well-lit areas when walking at night</p>
+                            </div>
+                            <div class="safety-tip">
+                                <span class="tip-icon">📱</span>
+                                <p>Keep your phone charged and easily accessible</p>
+                            </div>
+                            <div class="safety-tip">
+                                <span class="tip-icon">👥</span>
+                                <p>Walk with friends when possible</p>
+                            </div>
+                            <div class="safety-tip">
+                                <span class="tip-icon">👀</span>
+                                <p>Stay aware of your surroundings</p>
+                            </div>
+                        </div>
+                    </div>
+                    <small>Created by Adam Baldesarra, Joffre Decore, Ben Lee, and Jackson Moores </small>
+                </div>
+            </div>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <div class="chat-container chat-hidden" id="chatContainer">
+        <div class="chat-header">
+            <h3>Safety Assistant</h3>
+            <button class="chat-close" onclick="closeChat()">−</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai-message">
+                Hi! I'm your safety assistant. Ask me anything about safe routes or walking safety tips in Kingston!
+            </div>
+        </div>
+        <div class="chat-input">
+            <input type="text" id="chatInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <button class="chat-opener" id="chatOpener" onclick="openChat()">
+        <span class="chat-opener-icon">💬</span>
+        <span>Safety Assistant</span>
+    </button>
+
+    <script>
+        // Set Mapbox token from Flask
+        mapboxgl.accessToken = '{{ mapbox_token }}';
+    </script>
+
+    <script>
+        // Initialize map
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-76.4859, 44.2312], // Kingston coordinates
+            zoom: 13
+        });
+
+        // Update the geocoder initialization and event handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const startGeocoder = new MapboxGeocoder({
+                accessToken: mapboxgl.accessToken,
+                mapboxgl: mapboxgl,
+                countries: 'ca',  // Restrict to Canada
+                bbox: [-76.6359, 44.1812, -76.3359, 44.2812], // Kingston area
+                proximity: {
+                    longitude: -76.4859,
+                    latitude: 44.2312
+                },
+                placeholder: 'Enter starting point',
+                marker: false,
+                types: 'address,poi',  // Restrict to addresses and points of interest
+                localGeocoder: function(query) {
+                    // Custom handling for common Kingston locations
+                    return [];
+                }
+            });
+
+            const endGeocoder = new MapboxGeocoder({
+                accessToken: mapboxgl.accessToken,
+                mapboxgl: mapboxgl,
+                countries: 'ca',  // Restrict to Canada
+                bbox: [-76.6359, 44.1812, -76.3359, 44.2812], // Kingston area
+                proximity: {
+                    longitude: -76.4859,
+                    latitude: 44.2312
+                },
+                placeholder: 'Enter destination',
+                marker: false,
+                types: 'address,poi',  // Restrict to addresses and points of interest
+                localGeocoder: function(query) {
+                    // Custom handling for common Kingston locations
+                    return [];
+                }
+            });
+
+            // Add geocoders to their containers
+            const startContainer = document.getElementById('start-geocoder');
+            const endContainer = document.getElementById('end-geocoder');
+            
+            if (startContainer && endContainer) {
+                startContainer.appendChild(startGeocoder.onAdd(map));
+                endContainer.appendChild(endGeocoder.onAdd(map));
+            } else {
+                console.error('Geocoder containers not found');
+            }
+
+            // Error handling for geocoder events
+            startGeocoder.on('error', function(e) {
+                console.error('Start geocoder error:', e);
+            });
+
+            endGeocoder.on('error', function(e) {
+                console.error('End geocoder error:', e);
+            });
+
+            // Success handling for geocoder results
+            startGeocoder.on('result', function(e) {
+                console.log('Start location selected:', e.result);
+                if (start_marker) start_marker.remove();
+                start_marker = new mapboxgl.Marker({color: '#0071e3'})
+                    .setLngLat(e.result.center)
+                    .addTo(map);
+            });
+
+            endGeocoder.on('result', function(e) {
+                console.log('End location selected:', e.result);
+                if (end_marker) end_marker.remove();
+                end_marker = new mapboxgl.Marker({color: '#00b4d8'})
+                    .setLngLat(e.result.center)
+                    .addTo(map);
+            });
+
+            // Clear error message when starting a new search
+            startGeocoder.on('clear', function() {
+                if (start_marker) {
+                    start_marker.remove();
+                    start_marker = null;
+                }
+                document.getElementById('errorMessage').style.display = 'none';
+            });
+
+            endGeocoder.on('clear', function() {
+                if (end_marker) {
+                    end_marker.remove();
+                    end_marker = null;
+                }
+                document.getElementById('errorMessage').style.display = 'none';
+            });
+        });
+
+        let start_marker = null;
+        let end_marker = null;
+        let route_layer = null;
+
+        // Map click handler
+        map.on('click', function(e) {
+            if (!start_marker) {
+                start_marker = new mapboxgl.Marker({color: '#0071e3'})
+                    .setLngLat(e.lngLat)
+                    .addTo(map);
+                startGeocoder.setInput(`${e.lngLat.lat},${e.lngLat.lng}`);
+            } else if (!end_marker) {
+                end_marker = new mapboxgl.Marker({color: '#00b4d8'})
+                    .setLngLat(e.lngLat)
+                    .addTo(map);
+                endGeocoder.setInput(`${e.lngLat.lat},${e.lngLat.lng}`);
+            }
+        });
+
+        async function findSafeRoute() {
+            if (!start_marker || !end_marker) {
+                const errorMessage = document.getElementById('errorMessage');
+                errorMessage.textContent = 'Please select both starting point and destination.';
+                errorMessage.style.display = 'block';
+                return;
+            }
+
+            const findRouteBtn = document.getElementById('findRouteBtn');
+            const loadingSpinner = findRouteBtn.querySelector('.loading-spinner');
+            const btnText = findRouteBtn.querySelector('.btn-text');
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Show loading state
+            findRouteBtn.disabled = true;
+            loadingSpinner.style.display = 'block';
+            btnText.textContent = 'Finding Route...';
+            errorMessage.style.display = 'none';
+
+            try {
+                const startCoords = start_marker.getLngLat();
+                const endCoords = end_marker.getLngLat();
+
+                const response = await fetch('/get_route', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        start: `${startCoords.lat},${startCoords.lng}`,
+                        end: `${endCoords.lat},${endCoords.lng}`
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.route) {
+                    // Remove existing route layer if it exists
+                    if (map.getSource('route')) {
+                        map.removeLayer('route');
+                        map.removeSource('route');
+                    }
+
+                    // Add the route to the map
+                    map.addSource('route', {
+                        'type': 'geojson',
+                        'data': {
+                            'type': 'Feature',
+                            'properties': {},
+                            'geometry': data.route.geometry
+                        }
+                    });
+
+                    map.addLayer({
+                        'id': 'route',
+                        'type': 'line',
+                        'source': 'route',
+                        'layout': {
+                            'line-join': 'round',
+                            'line-cap': 'round'
+                        },
+                        'paint': {
+                            'line-color': '#0071e3',
+                            'line-width': 4
+                        }
+                    });
+
+                    // Update route information
+                    document.getElementById('distance').textContent = 
+                        `${(data.distance / 1000).toFixed(2)} km`;
+                    document.getElementById('duration').textContent = 
+                        `${Math.round(data.duration / 60)} minutes`;
+                    document.getElementById('routeInfo').style.display = 'block';
+
+                    // Fit the map to the route
+                    const coordinates = data.route.geometry.coordinates;
+                    const bounds = coordinates.reduce((bounds, coord) => {
+                        return bounds.extend(coord);
+                    }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
+
+                    map.fitBounds(bounds, {
+                        padding: 50
+                    });
+                } else {
+                    errorMessage.textContent = 'Unable to find route. Please try different locations.';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorMessage.textContent = 'There was an error finding the route. Please try again.';
+                errorMessage.style.display = 'block';
+            } finally {
+                // Reset button state
+                findRouteBtn.disabled = false;
+                loadingSpinner.style.display = 'none';
+                btnText.textContent = 'Find Safe Route';
+            }
+        }
+
+        function closeChat() {
+            document.getElementById('chatContainer').classList.add('chat-hidden');
+            document.getElementById('chatOpener').style.display = 'flex';
+        }
+
+        function openChat() {
+            document.getElementById('chatContainer').classList.remove('chat-hidden');
+            document.getElementById('chatOpener').style.display = 'none';
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        let isWaitingForResponse = false;
+
+        async function sendMessage() {
+            if (isWaitingForResponse) return;
+
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage(message, 'user');
+            input.value = '';
+
+            // Show loading state
+            isWaitingForResponse = true;
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message ai-message';
+            loadingDiv.innerHTML = '<div class="chat-loading"></div>';
+            document.getElementById('chatMessages').appendChild(loadingDiv);
+
+            try {
+                // Get current route coordinates if they exist
+                let routeData = {};
+                if (start_marker && end_marker) {
+                    const startCoords = start_marker.getLngLat();
+                    const endCoords = end_marker.getLngLat();
+                    routeData = {
+                        start: `${startCoords.lat},${startCoords.lng}`,
+                        end: `${endCoords.lat},${endCoords.lng}`
+                    };
+                }
+
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        message: message,
+                        route: routeData
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Remove loading message
+                loadingDiv.remove();
+                
+                // Add AI response to chat
+                addMessage(data.response, 'ai');
+            } catch (error) {
+                loadingDiv.remove();
+                addMessage('Sorry, I encountered an error. Please try again.', 'ai');
+            } finally {
+                isWaitingForResponse = false;
+            }
+        }
+
+        function addMessage(message, type) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', `${type}-message`);
+            messageDiv.textContent = message;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Ensure proper z-index handling for suggestions
+        startGeocoder.on('results', () => {
+            document.querySelector('#start-geocoder .mapboxgl-ctrl-geocoder--suggestions').style.zIndex = '1000';
+        });
+
+        endGeocoder.on('results', () => {
+            document.querySelector('#end-geocoder .mapboxgl-ctrl-geocoder--suggestions').style.zIndex = '999';
+        });
+
+        function switchTab(tabId, clickedTab) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Deactivate all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate clicked tab
+            clickedTab.classList.add('active');
+        }
+    </script>
+</body>
+</html> 
