@@ -136,5 +136,5 @@ if __name__ == '__main__':
     # Make sure the Mapbox token is available
     if not os.getenv('MAPBOX_TOKEN'):
         logger.error("MAPBOX_TOKEN not found in environment variables!")
-    
+    app.run(host='0.0.0.0', port=10000, debug=True) #ADDED THIS
     app.run(debug=True) 
